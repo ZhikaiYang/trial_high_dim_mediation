@@ -3,9 +3,8 @@
 
 ## Data
 
-- DNA (H3K4me3, H3K27ac): `data/mads69_10k_snps.txt`
-- RNA (H3K4me3, H3K27ac): `data/rna_flower.txt`
-  - what does the header mean?
+- DNA: `data/mads69_10k_snps.txt`
+- RNA: `data/rna_flower.txt`
 - Phenotype: `data/geno_trait.txt`
 - PCs: `data/hmp321_282_agpv4_maf005_miss03_pruned.eigenvec`
 
