@@ -1,0 +1,79 @@
+---
+title: "R Notebook"
+output: NULL
+---
+
+## Normalize the path:
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+knitr::opts_knit$set(root.dir=normalizePath('../../')) 
+```
+
+#on HCC
+```{r}
+library(data.table)
+
+#DNA
+
+a = fread("/common/jyanglab/zhikaiyang/projects/mediation/largedata/geno/gddtosilk_p7msnps_matrix_new.txt",header = T, data.table = F)
+geno = a[,c(1,3:ncol(a))]
+rm(a)
+pos = colnames(geno)[2:ncol(geno)]
+pos = data.frame(snp = pos)
+pos$chr = as.integer(gsub("-[0-9]+", "", pos$snp))
+pos$loc = as.integer(gsub("[0-9]+-", "", pos$snp))
+
+id_mads = which((pos$chr == 3) & (pos$loc >= 160591489) & (pos$loc <= 160591701)) #1
+id_mads = which((pos$chr == 3) & (pos$loc >= 150591489) & (pos$loc <= 170591701)) #8177
+id_mads = which((pos$chr == 3) & (pos$loc >= 150000000) & (pos$loc <= 180000000)) #12464
+id_mads_s = sort(sample(id_mads,10000))
+geno_mads = geno[,c(1,id_mads_s+1)]
+
+fwrite(geno_mads, "largedata/geno/mads69_10k_snps.txt", row.names = F, sep = "\t")
+
+#RNA
+
+male = fread("largedata/male_flowering_genes.txt")
+female = fread("largedata/female_flowering_genes.txt")
+flower_genes = unique(c(female$ID, male$ID))
+rnafile = "largedata/RNA-seq/filtered_LMAD.csv"
+rna <- fread(rnafile, data.table=FALSE)
+id_flower_g = which(colnames(rna) %in% flower_genes)
+rna_flower = rna[,c(1,id_flower_g)]
+fwrite(rna_flower, "largedata/rna_flower.txt", row.names = F, sep = "\t")
+
+```
+
+#on local
+```{r}
+library(data.table)
+
+#phenotype
+pheno = fread("data/geno_trait.txt")
+
+#genotype
+geno_mads = fread("data/mads69_10k_snps.txt")
+
+#flowering time gene expression 
+rna_flower = fread("data/rna_flower.txt")
+
+#principal components
+pcs = fread("data/hmp321_282_agpv4_maf005_miss03_pruned.eigenvec")
+pcs = pcs[,2:12]
+colnames(pcs) = c("genotype", paste0(rep("pc",10),1:10))
+
+
+```
+
+#pheno visualization
+```{r}
+library(ggplot2)
+library(GGally)
+ggpairs(pheno[,2:7],title = "Flowering Time Traits Distribution")
+```
+
+```{r}
+hist(rna_flower$GRMZM2G171650, main = "Gene Expression of MADS69 in Mature Leafe during the Day", xlab = "MADS69  (GRMZM2G171650)", ylab = "FPM")
+```
+
