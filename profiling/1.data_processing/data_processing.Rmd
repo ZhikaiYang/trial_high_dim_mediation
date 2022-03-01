@@ -74,6 +74,6 @@ ggpairs(pheno[,2:7],title = "Flowering Time Traits Distribution")
 ```
 
 ```{r}
-hist(rna_flower$GRMZM2G171650, main = "Gene Expression of MADS69 in Mature Leafe during the Day", xlab = "MADS69  (GRMZM2G171650)", ylab = "FPM")
+hist(rna_flower$GRMZM2G171650, main = "Gene Expression of MADS69 in Mature Leafe during the Day", xlab = "Fragments Per Million (FPM)", ylab = "Frequency")
 ```
 
