@@ -4,7 +4,7 @@
 ## Data
 
 - DNA: `data/mads69_10k_snps.txt`
-- RNA: `data/rna_flower.txt`
+- RNA (in mature leaf during the day): `data/rna_flower.txt`
 - Phenotype: `data/geno_trait.txt`
 - PCs: `data/hmp321_282_agpv4_maf005_miss03_pruned.eigenvec`
 
