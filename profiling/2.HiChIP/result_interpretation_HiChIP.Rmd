@@ -1,0 +1,274 @@
+---
+title: "R Notebook"
+output: NULL
+---
+
+## Normalize the path:
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+knitr::opts_knit$set(root.dir=normalizePath('../../')) 
+```
+
+#on local
+```{r}
+library(data.table)
+
+# HiCHIP
+# k4me3
+
+loops_k4me3 = fread("largedata/S3b_K4me3_HiChIP.txt",header = T, data.table = F)
+
+s1_mads = which((loops_k4me3$Chr == 3) & (loops_k4me3$s1 >= 150000000) & (loops_k4me3$s1 <= 180000000))
+e1_mads = which((loops_k4me3$Chr == 3) & (loops_k4me3$e1 >= 150000000) & (loops_k4me3$e1 <= 180000000))
+s2_mads = which((loops_k4me3$Chr == 3) & (loops_k4me3$s2 >= 150000000) & (loops_k4me3$s2 <= 180000000))
+e2_mads = which((loops_k4me3$Chr == 3) & (loops_k4me3$e2 >= 150000000) & (loops_k4me3$e2 <= 180000000))
+
+id_mads_s = sort(unique(c(s1_mads, e1_mads, s2_mads, e2_mads)))
+loops_k4me3 = loops_k4me3[id_mads_s,]
+rownames(loops_k4me3) = 1:nrow(loops_k4me3)
+
+#iSNPs
+
+# isnps of days to silk 
+isnps_k4me3_ds = fread("largedata/DaystoSilk_0.1_diffmed_sl_results.csv", header = T, data.table = F)
+id = which(isnps_k4me3_ds$idtag %in% c("_indirect", "_tot_direct_indirect")) 
+isnps_k4me3_ds = isnps_k4me3_ds[id,1:3]
+isnps_k4me3_ds$chr = as.integer(gsub("X|\\..*", "", isnps_k4me3_ds$location))
+isnps_k4me3_ds$pos = as.integer(gsub("X[0-9]*\\.","", isnps_k4me3_ds$location))
+
+# isnps of GDD to silk 
+isnps_k4me3_gdds = fread("largedata/GDDDaystoSilk_0.1_diffmed_sl_results.csv", header = T, data.table = F)
+id = which(isnps_k4me3_gdds$idtag %in% c("_indirect", "_tot_direct_indirect")) 
+isnps_k4me3_gdds = isnps_k4me3_gdds[id,1:3]
+isnps_k4me3_gdds$chr = as.integer(gsub("X|\\..*", "", isnps_k4me3_gdds$location))
+isnps_k4me3_gdds$pos = as.integer(gsub("X[0-9]*\\.","", isnps_k4me3_gdds$location))
+
+
+# isnps of days to tassel 
+isnps_k4me3_dt = fread("largedata/DaystoTassel_0.1_diffmed_sl_results.csv", header = T, data.table = F)
+id = which(isnps_k4me3_dt$idtag %in% c("_indirect", "_tot_direct_indirect")) 
+isnps_k4me3_dt = isnps_k4me3_dt[id,1:3]
+isnps_k4me3_dt$chr = as.integer(gsub("X|\\..*", "", isnps_k4me3_dt$location))
+isnps_k4me3_dt$pos = as.integer(gsub("X[0-9]*\\.","", isnps_k4me3_dt$location))
+
+# isnps of GDD to tassel 
+isnps_k4me3_gddt = fread("largedata/GDDDaystoTassel_0.1_diffmed_sl_results.csv", header = T, data.table = F)
+id = which(isnps_k4me3_gddt$idtag %in% c("_indirect", "_tot_direct_indirect")) 
+isnps_k4me3_gddt = isnps_k4me3_gddt[id,1:3]
+isnps_k4me3_gddt$chr = as.integer(gsub("X|\\..*", "", isnps_k4me3_gddt$location))
+isnps_k4me3_gddt$pos = as.integer(gsub("X[0-9]*\\.","", isnps_k4me3_gddt$location))
+
+
+library("GenomicRanges")
+library("plyr")
+# 0 overlap of isnps of days to silk with loops of k4me3
+
+grc <- with(isnps_k4me3_gdds, GRanges(seqnames=chr, IRanges(start=pos, end=pos)))
+
+grf1 <- with(loops_k4me3, GRanges(seqnames=Chr, IRanges(start=s1, end=e1)))
+
+### find overlaps between the two
+tb1 <- findOverlaps(query=grf1, subject=grc)
+tb1 <- as.matrix(tb1)
+
+overlap1 = cbind(isnps_k4me3_gdds[tb1[,2],], loops_k4me3[tb1[,1],])
+
+
+grf2 <- with(loops_k4me3, GRanges(seqnames=Chr, IRanges(start=s2, end=e2)))
+
+### find overlaps between the two
+tb2 <- findOverlaps(query=grf2, subject=grc)
+tb2 <- as.matrix(tb2)
+
+overlap2 = cbind(isnps_k4me3_gdds[tb2[,2],], loops_k4me3[tb2[,1],])
+
+overlapc = rbind(overlap1, overlap2)
+
+
+```
+
+```{r}
+o_isnps_loops_dt = overlapc
+
+o_isnps_loops_gddt = overlapc
+
+o_isnps_loops_gdds = overlapc
+
+# the overlaps are the same across dt gddt gdds
+
+fwrite(o_isnps_loops_dt, "largedata/overlap_k4me3_dt_gddt_gdds_same.txt", sep = "\t", row.names = F, quote = F)
+```
+
+
+```{r}
+
+#flowering genes
+
+male = fread("data/male_flowering_genes.txt")
+female = fread("data/female_flowering_genes.txt")
+flower_genes = rbind(male, female)
+flower_genes = flower_genes[!duplicated(flower_genes$ID), ]
+
+flower_genes$seqnames = gsub("chr", "", flower_genes$seqnames)
+flower_genes = flower_genes[which(flower_genes$seqnames == 3),]
+
+
+
+grc <- with(flower_genes, GRanges(seqnames=seqnames, IRanges(start=start, end=end)))
+
+grf1 <- with(o_isnps_loops_dt, GRanges(seqnames=Chr, IRanges(start=s1, end=e1)))
+
+### find overlaps between the two
+tb1 <- findOverlaps(query=grf1, subject=grc)
+tb1 <- as.matrix(tb1)
+
+overlap1 = cbind(flower_genes[tb1[,2],], o_isnps_loops_dt[tb1[,1],])
+
+
+grf2 <- with(o_isnps_loops_dt, GRanges(seqnames=Chr, IRanges(start=s2, end=e2)))
+
+### find overlaps between the two
+tb2 <- findOverlaps(query=grf2, subject=grc)
+tb2 <- as.matrix(tb2)
+
+overlap2 = cbind(flower_genes[tb2[,2],], o_isnps_loops_dt[tb2[,1],])
+
+overlapc = rbind(overlap1, overlap2)
+
+
+# no isnps-loops overlap with flowering time genes
+```
+
+
+#on local
+```{r}
+library(data.table)
+
+# HiCHIP
+# k27ac3
+
+loops_k27ac3 = fread("largedata/S3c_K27ac3_HiChIP.txt",header = T, data.table = F)
+
+s1_mads = which((loops_k27ac3$Chr == 3) & (loops_k27ac3$s1 >= 150000000) & (loops_k27ac3$s1 <= 180000000))
+e1_mads = which((loops_k27ac3$Chr == 3) & (loops_k27ac3$e1 >= 150000000) & (loops_k27ac3$e1 <= 180000000))
+s2_mads = which((loops_k27ac3$Chr == 3) & (loops_k27ac3$s2 >= 150000000) & (loops_k27ac3$s2 <= 180000000))
+e2_mads = which((loops_k27ac3$Chr == 3) & (loops_k27ac3$e2 >= 150000000) & (loops_k27ac3$e2 <= 180000000))
+
+id_mads_s = sort(unique(c(s1_mads, e1_mads, s2_mads, e2_mads)))
+loops_k27ac3 = loops_k27ac3[id_mads_s,]
+rownames(loops_k27ac3) = 1:nrow(loops_k27ac3)
+
+#iSNPs
+
+# isnps of days to silk 
+isnps_k27ac3_ds = fread("largedata/DaystoSilk_0.1_diffmed_sl_results.csv", header = T, data.table = F)
+id = which(isnps_k27ac3_ds$idtag %in% c("_indirect", "_tot_direct_indirect")) 
+isnps_k27ac3_ds = isnps_k27ac3_ds[id,1:3]
+isnps_k27ac3_ds$chr = as.integer(gsub("X|\\..*", "", isnps_k27ac3_ds$location))
+isnps_k27ac3_ds$pos = as.integer(gsub("X[0-9]*\\.","", isnps_k27ac3_ds$location))
+
+# isnps of GDD to silk 
+isnps_k27ac3_gdds = fread("largedata/GDDDaystoSilk_0.1_diffmed_sl_results.csv", header = T, data.table = F)
+id = which(isnps_k27ac3_gdds$idtag %in% c("_indirect", "_tot_direct_indirect")) 
+isnps_k27ac3_gdds = isnps_k27ac3_gdds[id,1:3]
+isnps_k27ac3_gdds$chr = as.integer(gsub("X|\\..*", "", isnps_k27ac3_gdds$location))
+isnps_k27ac3_gdds$pos = as.integer(gsub("X[0-9]*\\.","", isnps_k27ac3_gdds$location))
+
+
+# isnps of days to tassel 
+isnps_k27ac3_dt = fread("largedata/DaystoTassel_0.1_diffmed_sl_results.csv", header = T, data.table = F)
+id = which(isnps_k27ac3_dt$idtag %in% c("_indirect", "_tot_direct_indirect")) 
+isnps_k27ac3_dt = isnps_k27ac3_dt[id,1:3]
+isnps_k27ac3_dt$chr = as.integer(gsub("X|\\..*", "", isnps_k27ac3_dt$location))
+isnps_k27ac3_dt$pos = as.integer(gsub("X[0-9]*\\.","", isnps_k27ac3_dt$location))
+
+# isnps of GDD to tassel 
+isnps_k27ac3_gddt = fread("largedata/GDDDaystoTassel_0.1_diffmed_sl_results.csv", header = T, data.table = F)
+id = which(isnps_k27ac3_gddt$idtag %in% c("_indirect", "_tot_direct_indirect")) 
+isnps_k27ac3_gddt = isnps_k27ac3_gddt[id,1:3]
+isnps_k27ac3_gddt$chr = as.integer(gsub("X|\\..*", "", isnps_k27ac3_gddt$location))
+isnps_k27ac3_gddt$pos = as.integer(gsub("X[0-9]*\\.","", isnps_k27ac3_gddt$location))
+
+
+library("GenomicRanges")
+library("plyr")
+# 0 overlap of isnps of Days to Silk and GDD to silk Days to Tassel and GDD to tassel with loops of k27ac3
+grc <- with(isnps_k27ac3_gddt, GRanges(seqnames=chr, IRanges(start=pos, end=pos)))
+
+grf1 <- with(loops_k27ac3, GRanges(seqnames=Chr, IRanges(start=s1, end=e1)))
+
+### find overlaps between the two
+tb1 <- findOverlaps(query=grf1, subject=grc)
+tb1 <- as.matrix(tb1)
+
+overlap1 = cbind(isnps_k27ac3_gddt[tb1[,2],], loops_k27ac3[tb1[,1],])
+
+
+grf2 <- with(loops_k27ac3, GRanges(seqnames=Chr, IRanges(start=s2, end=e2)))
+
+### find overlaps between the two
+tb2 <- findOverlaps(query=grf2, subject=grc)
+tb2 <- as.matrix(tb2)
+
+overlap2 = cbind(isnps_k27ac3_gddt[tb2[,2],], loops_k27ac3[tb2[,1],])
+
+overlapc = rbind(overlap1, overlap2)
+
+
+
+```
+
+```{r}
+o_isnps_loops_dt = overlapc
+
+o_isnps_loops_gddt = overlapc
+
+o_isnps_loops_gdds = overlapc
+
+# the overlaps are the same across dt gddt gdds
+
+fwrite(o_isnps_loops_dt, "largedata/overlap_k27ac3_dt_gddt_gdds_same.txt", sep = "\t", row.names = F, quote = F)
+```
+
+
+```{r}
+
+#flowering genes
+
+male = fread("data/male_flowering_genes.txt")
+female = fread("data/female_flowering_genes.txt")
+flower_genes = rbind(male, female)
+flower_genes = flower_genes[!duplicated(flower_genes$ID), ]
+
+flower_genes$seqnames = gsub("chr", "", flower_genes$seqnames)
+flower_genes = flower_genes[which(flower_genes$seqnames == 3),]
+
+
+
+grc <- with(flower_genes, GRanges(seqnames=seqnames, IRanges(start=start, end=end)))
+
+grf1 <- with(o_isnps_loops_dt, GRanges(seqnames=Chr, IRanges(start=s1, end=e1)))
+
+### find overlaps between the two
+tb1 <- findOverlaps(query=grf1, subject=grc)
+tb1 <- as.matrix(tb1)
+
+overlap1 = cbind(flower_genes[tb1[,2],], o_isnps_loops_dt[tb1[,1],])
+
+
+grf2 <- with(o_isnps_loops_dt, GRanges(seqnames=Chr, IRanges(start=s2, end=e2)))
+
+### find overlaps between the two
+tb2 <- findOverlaps(query=grf2, subject=grc)
+tb2 <- as.matrix(tb2)
+
+overlap2 = cbind(flower_genes[tb2[,2],], o_isnps_loops_dt[tb2[,1],])
+
+overlapc = rbind(overlap1, overlap2)
+
+
+# no isnps-loops overlap with flowering time genes
+```
+
+
