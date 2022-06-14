@@ -32,6 +32,18 @@ geno_mads = geno[,c(1,id_mads_s+1)]
 
 fwrite(geno_mads, "largedata/geno/mads69_10k_snps.txt", row.names = F, sep = "\t")
 
+
+id_mads_s = sort(id_mads)
+geno_mads = geno[,c(1,id_mads_s+1)]
+fwrite(geno_mads, "largedata/geno/mads69_12464_snps.txt", row.names = F, sep = "\t")
+
+id_mads = which((pos$chr == 3) & (pos$loc >= 150000000) & (pos$loc <= 170000000)) #12464
+id_mads_s = sort(id_mads)
+geno_mads = geno[,c(1,id_mads_s+1)]
+fwrite(geno_mads, "largedata/geno/mads69_8044_snps.txt", row.names = F, sep = "\t")
+
+
+
 #RNA
 
 male = fread("largedata/male_flowering_genes.txt")
