@@ -1,0 +1,178 @@
+---
+title: "R Notebook"
+output: NULL
+---
+
+## Normalize the path:
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+knitr::opts_knit$set(root.dir=normalizePath('../../')) 
+```
+
+#on local
+```{r}
+library(data.table)
+library(dplyr)
+gwas_ds = fread("largedata/gwas/DaystoSilk.sig.txt",header = T, data.table = F)
+gwas_dt = fread("largedata/gwas/GDDDaystoTassel.sig.txt",header = T, data.table = F)
+gwas_gdds = fread("largedata/gwas/GDDDaystoSilk.sig.txt",header = T, data.table = F)
+gwas_gddt = fread("largedata/gwas/GDDDaystoTassel.sig.txt",header = T, data.table = F)
+
+gwas_ds = subset(gwas_ds, chr == 3)
+gwas_ds = arrange(gwas_ds,p_wald)
+
+gwas_dt = subset(gwas_dt, chr == 3)
+gwas_dt = arrange(gwas_dt,p_wald)
+
+gwas_gdds = subset(gwas_gdds, chr == 3)
+gwas_gdds = arrange(gwas_gdds,p_wald)
+
+gwas_gddt = subset(gwas_gddt, chr == 3)
+gwas_gddt = arrange(gwas_gddt,p_wald)
+
+gwas_ds_peak = subset(gwas_ds, (ps >= (160911191-500000)) & (ps <= (160980380+500000)) )
+gwas_dt_peak = subset(gwas_dt, (ps >= (160911191-500000)) & (ps <= (160980380+500000)) )
+gwas_gdds_peak = subset(gwas_gdds, (ps >= (160911191-500000)) & (ps <= (160980380+500000)) )
+gwas_gddt_peak = subset(gwas_gddt, (ps >= (160911191-500000)) & (ps <= (160980380+500000)) )
+min(c(gwas_ds_peak$ps, gwas_dt_peak$ps, gwas_gdds_peak$ps, gwas_gddt_peak$ps))
+max(c(gwas_ds_peak$ps, gwas_dt_peak$ps, gwas_gdds_peak$ps, gwas_gddt_peak$ps))
+
+snp_list_gwaspeak = unique(c(gwas_ds_peak$rs, gwas_dt_peak$rs, gwas_gdds_peak$rs, gwas_gddt_peak$rs))
+fwrite(as.data.frame(snp_list_gwaspeak), "largedata/gwas/snp_list_gwaspeak.txt", row.names = F, sep = "\t" )
+```
+
+#on HCC
+```{r}
+library(data.table)
+eqtl = fread("/common/jyanglab/zhikaiyang/projects/mediation/largedata/eqtl/lmad/chrom_3_fast_assoc_results_LMAD_Kremling_2018.txt",header = T, data.table = F)
+
+genes_eqtl_on_gwas_peak = subset(eqtl, (Pos >= 160429526) & (Pos <= 161478267) )
+
+fwrite(genes_eqtl_on_gwas_peak, "largedata/eqtl/genes_eqtl_on_gwas_peak.txt", row.names = F, sep = "\t")
+
+```
+
+#on local
+```{r}
+
+genes_eqtl_on_gwas_peak = fread("largedata/eqtl/genes_eqtl_on_gwas_peak.txt", header = T, data.table = F )
+genes_eqtl_on_gwas_peak$gene = gsub("_LMAD", "", genes_eqtl_on_gwas_peak$Trait)
+genes_eqtl_on_gwas_peak$tissue = gsub(".*_", "", genes_eqtl_on_gwas_peak$Trait)
+
+gene_list = unique(genes_eqtl_on_gwas_peak$gene)
+snp_list_eqtl = unique(genes_eqtl_on_gwas_peak$Marker)
+
+length(intersect(snp_list_eqtl, snp_list_gwaspeak))
+snp_list = unique(c(snp_list_gwaspeak, snp_list_eqtl))
+fwrite(as.data.frame(snp_list), "largedata/snp_list.txt", row.names = F, col.names = F, sep = "\t" )
+
+```
+
+
+#on HCC
+
+```{bash}
+cd /common/jyanglab/zhikaiyang/projects/mediation/largedata/geno
+#subset SNPs
+plink -bfile  hmp321_282_agpv4_maf005_miss03 --extract snp_list.txt --make-bed --out hmp321_282_agpv4_maf005_miss03_new_mediation
+##Convert binary file to VCF using plink
+plink --bfile hmp321_282_agpv4_maf005_miss03_new_mediation --recode vcf-iid --out hmp321_282_agpv4_maf005_miss03_new_mediation
+##Convert VCF to intermediate file using perl
+perl subs_NA_0_mediation.pl
+```
+
+```{r}
+library(data.table)
+
+trait=fread("trait_GDDDaystoSilk.txt", header=T,data.table=F)
+#pheno <- fread("/common/jyanglab/zhikaiyang/projects/mediation-analysis/largedata/geno_282/phenotype_282_GEMMA_sure.txt")
+#trait$GDDDaystoSilk <- as.vector(unlist(pheno[,12]))
+d=fread("hmp321_282_agpv4_maf005_miss03_new_mediation.vcf1", header=F,data.table=F)
+d1=t(d)
+mk=colnames(d1)=d1[1,]
+colnames(d1)[1]="Genotype"
+d1=d1[-1,]
+d2=as.data.frame(d1,stringsAsFactors =F)
+d3=as.data.frame(d1)
+id = which(d3$Genotype == "W64a")
+d3$Genotype = as.character(d3$Genotype)
+d3$Genotype[id] = "W64A"
+d4=merge(trait, d3, by="Genotype")
+out="gddtosilk_mediation_snp_matrix_new.txt"
+fwrite(d4,"gddtosilk_mediation_snp_matrix_new.txt",sep="\t",col.names = T,row.names = F,quote=F)
+
+```
+
+
+#on HCC
+
+```{r}
+snp_list_gwaspeak = fread("largedata/eqtl/snp_list_gwaspeak.txt", header = T, data.table = F)
+snp_list_gwaspeak = snp_list_gwaspeak$snp_list_gwaspeak
+
+genes_eqtl_on_gwas_peak = fread("largedata/eqtl/genes_eqtl_on_gwas_peak.txt", header = T, data.table = F )
+genes_eqtl_on_gwas_peak$gene = gsub("_LMAD", "", genes_eqtl_on_gwas_peak$Trait)
+genes_eqtl_on_gwas_peak$tissue = gsub(".*_", "", genes_eqtl_on_gwas_peak$Trait)
+
+gene_list = unique(genes_eqtl_on_gwas_peak$gene)
+snp_list_eqtl = unique(genes_eqtl_on_gwas_peak$Marker)
+
+snp_list = unique(c(snp_list_gwaspeak, snp_list_eqtl))
+#DNA
+a = fread("/common/jyanglab/zhikaiyang/projects/mediation/largedata/geno/gddtosilk_mediation_snp_matrix_new.txt",header = T, data.table = F)
+geno = a[,c(1,3:ncol(a))]
+rm(a)
+
+length(which(colnames(geno) %in% snp_list)) #3367
+length(which(colnames(geno) %in% snp_list_gwaspeak)) #300
+length(which(colnames(geno) %in% snp_list_eqtl)) #3175
+
+fwrite(geno, "largedata/geno/mediation_snp_matrix.txt", row.names = F, sep = "\t")
+
+
+
+#RNA
+
+rnafile = "largedata/RNA-seq/filtered_LMAD.csv"
+rna <- fread(rnafile, data.table=FALSE)
+v3_v4 = fread("largedata/V3_V4.csv", header = F, data.table = F)
+dim(v3_v4) # 30748     5
+v3_v4 = subset(v3_v4, V2 %in% gene_list)
+dim(v3_v4) # 1006    5
+id_g = which(colnames(rna) %in% v3_v4$V1)
+length(id_g) #1003
+rna_med = rna[,c(1,id_g)]
+fwrite(rna_med, "largedata/mediation_gene_matrix.txt", row.names = F, sep = "\t")
+
+```
+
+
+#on local
+```{r}
+library(data.table)
+
+#phenotype
+pheno = fread("data/geno_trait.txt")
+
+#genotype
+geno = fread("data/mediation_snp_matrix.txt")
+
+#gene expression 
+rna_med = fread("data/mediation_gene_matrix.txt")
+
+#principal components
+pcs = fread("data/hmp321_282_agpv4_maf005_miss03_pruned.eigenvec")
+pcs = pcs[,2:12]
+colnames(pcs) = c("genotype", paste0(rep("pc",10),1:10))
+
+
+```
+
+#pheno visualization
+```{r}
+library(ggplot2)
+library(GGally)
+ggpairs(pheno[,c(3,4,6,7)],title = "Flowering Time Traits Distribution")
+```
+
