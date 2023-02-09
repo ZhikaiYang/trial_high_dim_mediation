@@ -66,6 +66,7 @@ snp_list_eqtl = unique(genes_eqtl_on_gwas_peak$Marker)
 length(intersect(snp_list_eqtl, snp_list_gwaspeak))
 snp_list = unique(c(snp_list_gwaspeak, snp_list_eqtl))
 fwrite(as.data.frame(snp_list), "largedata/snp_list.txt", row.names = F, col.names = F, sep = "\t" )
+fwrite(as.data.frame(snp_list_eqtl), "largedata/snp_list_eqtl.txt", row.names = F, col.names = F, sep = "\t" )
 
 ```
 
