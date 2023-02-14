@@ -81,6 +81,23 @@ plink -bfile  hmp321_282_agpv4_maf005_miss03 --extract snp_list.txt --make-bed -
 plink --bfile hmp321_282_agpv4_maf005_miss03_new_mediation --recode vcf-iid --out hmp321_282_agpv4_maf005_miss03_new_mediation
 ##Convert VCF to intermediate file using perl
 perl subs_NA_0_mediation.pl
+
+
+
+
+##Qi ask all snps including non-sig within gwas peak
+
+awk '$1==3 && $4>=160429526 && $4<=161478267' hmp321_282_agpv4_maf005_miss03.bim > gwas_peak.bim
+
+awk '{ print $2}' gwas_peak.bim > snp_list_all.txt
+
+#subset SNPs
+plink -bfile  hmp321_282_agpv4_maf005_miss03 --extract snp_list_all.txt --make-bed --out hmp321_282_agpv4_maf005_miss03_new_mediation_all
+##Convert binary file to VCF using plink
+plink --bfile hmp321_282_agpv4_maf005_miss03_new_mediation_all --recode vcf-iid --out hmp321_282_agpv4_maf005_miss03_new_mediation_all
+##Convert VCF to intermediate file using perl
+perl subs_NA_0_mediation.pl
+
 ```
 
 ```{r}
@@ -102,6 +119,26 @@ d3$Genotype[id] = "W64A"
 d4=merge(trait, d3, by="Genotype")
 out="gddtosilk_mediation_snp_matrix_new.txt"
 fwrite(d4,"gddtosilk_mediation_snp_matrix_new.txt",sep="\t",col.names = T,row.names = F,quote=F)
+
+
+
+##Qi ask all snps including non-sig within gwas peak
+
+d=fread("hmp321_282_agpv4_maf005_miss03_new_mediation_all.vcf1", header=F,data.table=F)
+d1=t(d)
+mk=colnames(d1)=d1[1,]
+colnames(d1)[1]="Genotype"
+d1=d1[-1,]
+d2=as.data.frame(d1,stringsAsFactors =F)
+d3=as.data.frame(d1)
+id = which(d3$Genotype == "W64a")
+d3$Genotype = as.character(d3$Genotype)
+d3$Genotype[id] = "W64A"
+d4=merge(trait, d3, by="Genotype")
+
+#DNA Qi ask all
+out="mediation_snp_matrix_all.txt"
+fwrite(d4[,c(1,3:ncol(d4))],"mediation_snp_matrix_all.txt",sep="\t",col.names = T,row.names = F,quote=F)
 
 ```
 
@@ -146,6 +183,10 @@ length(id_g) #1003
 rna_med = rna[,c(1,id_g)]
 fwrite(rna_med, "largedata/mediation_gene_matrix.txt", row.names = F, sep = "\t")
 
+zea_gene_anno = fread("largedata/Zea_mays.AGPv4_anno.txt", header = T , data.table = F)
+gene_coordinate = merge(v3_v4[,1:2], zea_gene_anno[,1:4], by.x = "V2", by.y = "ensembl_gene_id_v4", all.x = T)
+colnames(gene_coordinate)[1:2] = c("V4_gene_name", "V3_gene_name") 
+fwrite(gene_coordinate, "largedata/gene_coordinate.txt", row.names = F, sep = "\t")
 ```
 
 
