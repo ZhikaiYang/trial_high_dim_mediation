@@ -1,0 +1,294 @@
+---
+title: "R Notebook"
+output: NULL
+---
+
+## Normalize the path:
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+knitr::opts_knit$set(root.dir=normalizePath('../../')) 
+```
+
+#on local
+```{r}
+library(data.table)
+
+# HiCHIP
+# k4me3
+
+loops_k4me3 = fread("largedata/S3b_K4me3_HiChIP.txt",header = T, data.table = F)
+
+s1_mads = which((loops_k4me3$Chr == 3) & (loops_k4me3$s1 >= 150000000) & (loops_k4me3$s1 <= 180000000))
+e1_mads = which((loops_k4me3$Chr == 3) & (loops_k4me3$e1 >= 150000000) & (loops_k4me3$e1 <= 180000000))
+s2_mads = which((loops_k4me3$Chr == 3) & (loops_k4me3$s2 >= 150000000) & (loops_k4me3$s2 <= 180000000))
+e2_mads = which((loops_k4me3$Chr == 3) & (loops_k4me3$e2 >= 150000000) & (loops_k4me3$e2 <= 180000000))
+
+id_mads_s = sort(unique(c(s1_mads, e1_mads, s2_mads, e2_mads)))
+loops_k4me3 = loops_k4me3[id_mads_s,]
+rownames(loops_k4me3) = 1:nrow(loops_k4me3)
+
+#nisnps
+
+# nisnps of days to silk 
+nisnps_k4me3_ds = fread("largedata/march_20/DaystoSilk_0.2_diffmed_sl_sigma_ls_adpt_results.csv", header = T, data.table = F)
+id = which(!(nisnps_k4me3_ds$idtag %in% c("_indirect", "_tot_indirect","_tot_direct_indirect"))) 
+nisnps_k4me3_ds = nisnps_k4me3_ds[id,c(1,3,4)]
+nisnps_k4me3_ds$chr = as.integer(gsub("X|\\..*", "", nisnps_k4me3_ds$location))
+nisnps_k4me3_ds$pos = as.integer(gsub("X[0-9]*\\.","", nisnps_k4me3_ds$location))
+
+# nisnps of GDD to silk 
+nisnps_k4me3_gdds = fread("largedata/march_20/GDDDaystoSilk_0.2_diffmed_sl_sigma_ls_adpt_results.csv", header = T, data.table = F)
+id = which(!(nisnps_k4me3_gdds$idtag %in% c("_indirect", "_tot_indirect","_tot_direct_indirect"))) 
+nisnps_k4me3_gdds = nisnps_k4me3_gdds[id,c(1,3,4)]
+nisnps_k4me3_gdds$chr = as.integer(gsub("X|\\..*", "", nisnps_k4me3_gdds$location))
+nisnps_k4me3_gdds$pos = as.integer(gsub("X[0-9]*\\.","", nisnps_k4me3_gdds$location))
+
+
+# nisnps of days to tassel 
+nisnps_k4me3_dt = fread("largedata/march_20/DaysToTassel_0.2_diffmed_sl_sigma_ls_adpt_results.csv", header = T, data.table = F)
+id = which(!(nisnps_k4me3_dt$idtag %in% c("_indirect", "_tot_indirect","_tot_direct_indirect"))) 
+nisnps_k4me3_dt = nisnps_k4me3_dt[id,c(1,3,4)]
+nisnps_k4me3_dt$chr = as.integer(gsub("X|\\..*", "", nisnps_k4me3_dt$location))
+nisnps_k4me3_dt$pos = as.integer(gsub("X[0-9]*\\.","", nisnps_k4me3_dt$location))
+
+# nisnps of GDD to tassel 
+nisnps_k4me3_gddt = fread("largedata/march_20/GDDDaystoTassel_0.2_diffmed_sl_sigma_ls_adpt_results.csv", header = T, data.table = F)
+id = which(!(nisnps_k4me3_gddt$idtag %in% c("_indirect", "_tot_indirect","_tot_direct_indirect"))) 
+nisnps_k4me3_gddt = nisnps_k4me3_gddt[id,c(1,3,4)]
+nisnps_k4me3_gddt$chr = as.integer(gsub("X|\\..*", "", nisnps_k4me3_gddt$location))
+nisnps_k4me3_gddt$pos = as.integer(gsub("X[0-9]*\\.","", nisnps_k4me3_gddt$location))
+
+
+library("GenomicRanges")
+library("plyr")
+# 0 overlap of nisnps of days to silk with loops of k4me3
+
+grc <- with(nisnps_k4me3_dt, GRanges(seqnames=chr, IRanges(start=pos, end=pos)))
+
+grf1 <- with(loops_k4me3, GRanges(seqnames=Chr, IRanges(start=s1, end=e1)))
+
+### find overlaps between the two
+tb1 <- findOverlaps(query=grf1, subject=grc)
+tb1 <- as.matrix(tb1)
+
+overlap1 = cbind(nisnps_k4me3_dt[tb1[,2],], loops_k4me3[tb1[,1],])
+
+
+grf2 <- with(loops_k4me3, GRanges(seqnames=Chr, IRanges(start=s2, end=e2)))
+
+### find overlaps between the two
+tb2 <- findOverlaps(query=grf2, subject=grc)
+tb2 <- as.matrix(tb2)
+
+overlap2 = cbind(nisnps_k4me3_dt[tb2[,2],], loops_k4me3[tb2[,1],])
+
+overlapc = rbind(overlap1, overlap2)
+
+```
+
+```{r}
+o_nisnps_loops_dt = overlapc
+
+o_nisnps_loops_gddt = overlapc
+
+o_nisnps_loops_gdds = overlapc
+
+o_nisnps_loops_ds = overlapc
+
+
+# the overlaps are the same across dt gddt gdds
+fwrite(o_nisnps_loops_ds, "largedata/march_20/nisnp_overlap_k4me3_ds.txt", sep = "\t", row.names = F, quote = F)
+fwrite(o_nisnps_loops_dt, "largedata/march_20/nisnp_overlap_k4me3_dt.txt", sep = "\t", row.names = F, quote = F)
+fwrite(o_nisnps_loops_gdds, "largedata/march_20/nisnp_overlap_k4me3_gdds.txt", sep = "\t", row.names = F, quote = F)
+fwrite(o_nisnps_loops_gddt, "largedata/march_20/nisnp_overlap_k4me3_gddt.txt", sep = "\t", row.names = F, quote = F)
+```
+
+
+
+#on local
+```{r}
+
+gene_coordinate = fread("largedata/gene_coordinate.txt", header = T, data.table = F)
+gene_coordinate = gene_coordinate[which(gene_coordinate$chromosome_name == "3"),]
+gene_coordinate$chromosome_name = as.integer(gene_coordinate$chromosome_name)
+
+grc <- with(gene_coordinate, GRanges(seqnames=chromosome_name, IRanges(start=start_position, end=end_position)))
+
+grf1 <- with(o_nisnps_loops_ds, GRanges(seqnames=Chr, IRanges(start=s1, end=e1)))
+
+### find overlaps between the two
+tb1 <- findOverlaps(query=grf1, subject=grc)
+tb1 <- as.matrix(tb1)
+
+overlap1 = cbind(gene_coordinate[tb1[,2],], o_nisnps_loops_ds[tb1[,1],])
+
+
+grf2 <- with(o_nisnps_loops_ds, GRanges(seqnames=Chr, IRanges(start=s2, end=e2)))
+
+### find overlaps between the two
+tb2 <- findOverlaps(query=grf2, subject=grc)
+tb2 <- as.matrix(tb2)
+
+overlap2 = cbind(gene_coordinate[tb2[,2],], o_nisnps_loops_ds[tb2[,1],])
+
+overlapc = rbind(overlap1, overlap2)
+
+fwrite(overlapc, "largedata/march_20/med_nisnps_HiC_k4me3_ds.txt", sep = "\t", row.names = F, quote = F) #1 / 13
+fwrite(overlapc, "largedata/march_20/med_nisnps_HiC_k4me3_dt.txt", sep = "\t", row.names = F, quote = F) #2 / 22
+fwrite(overlapc, "largedata/march_20/med_nisnps_HiC_k4me3_gdds.txt", sep = "\t", row.names = F, quote = F) #1 / 3
+fwrite(overlapc, "largedata/march_20/med_nisnps_HiC_k4me3_gddt.txt", sep = "\t", row.names = F, quote = F) #5 / 2
+
+
+```
+
+#if in med
+
+```{r}
+med_nisnps_HiC_k4me3_ds = fread ("largedata/march_20/med_nisnps_HiC_k4me3_ds.txt",header = T, data.table = F) #1 / 13
+med_nisnps_HiC_k4me3_dt = fread ("largedata/march_20/med_nisnps_HiC_k4me3_dt.txt",header = T, data.table = F) #2 / 22
+med_nisnps_HiC_k4me3_gdds = fread ("largedata/march_20/med_nisnps_HiC_k4me3_gdds.txt",header = T, data.table = F) #1 / 3
+med_nisnps_HiC_k4me3_gddt = fread ("largedata/march_20/med_nisnps_HiC_k4me3_gddt.txt",header = T, data.table = F) #5 / 2
+
+med_ds = fread("largedata/march_20/DaystoSilk_0.2_mediator_genes_chr3.csv",header = T, data.table = F )
+med_dt = fread("largedata/march_20/DaysToTassel_0.2_mediator_genes_chr3.csv",header = T, data.table = F )
+med_gdds = fread("largedata/march_20/GDDDaystoSilk_0.2_mediator_genes_chr3.csv",header = T, data.table = F )
+med_gddt = fread("largedata/march_20/GDDDaystoTassel_0.2_mediator_genes_chr3.csv",header = T, data.table = F )
+
+med_nisnps_HiC_k4me3_ds = med_nisnps_HiC_k4me3_ds[which(med_nisnps_HiC_k4me3_ds$V4_gene_name %in% med_ds$V4_gene_name),] #0 / 13
+med_nisnps_HiC_k4me3_dt = med_nisnps_HiC_k4me3_dt[which(med_nisnps_HiC_k4me3_dt$V4_gene_name %in% med_dt$V4_gene_name),] #2 / 22
+med_nisnps_HiC_k4me3_gddt = med_nisnps_HiC_k4me3_gddt[which(med_nisnps_HiC_k4me3_gddt$V4_gene_name %in% med_gddt$V4_gene_name),] #5 / 2
+med_nisnps_HiC_k4me3_gdds = med_nisnps_HiC_k4me3_gdds[which(med_nisnps_HiC_k4me3_gdds$V4_gene_name %in% med_gdds$V4_gene_name),] #1 / 3
+
+
+```
+
+
+
+#on local
+```{r}
+library(data.table)
+
+# HiCHIP
+# k27ac3
+
+loops_k27ac3 = fread("largedata/S3c_K27ac3_HiChIP.txt",header = T, data.table = F)
+
+s1_mads = which((loops_k27ac3$Chr == 3) & (loops_k27ac3$s1 >= 150000000) & (loops_k27ac3$s1 <= 180000000))
+e1_mads = which((loops_k27ac3$Chr == 3) & (loops_k27ac3$e1 >= 150000000) & (loops_k27ac3$e1 <= 180000000))
+s2_mads = which((loops_k27ac3$Chr == 3) & (loops_k27ac3$s2 >= 150000000) & (loops_k27ac3$s2 <= 180000000))
+e2_mads = which((loops_k27ac3$Chr == 3) & (loops_k27ac3$e2 >= 150000000) & (loops_k27ac3$e2 <= 180000000))
+
+id_mads_s = sort(unique(c(s1_mads, e1_mads, s2_mads, e2_mads)))
+loops_k27ac3 = loops_k27ac3[id_mads_s,]
+rownames(loops_k27ac3) = 1:nrow(loops_k27ac3)
+
+#nisnps
+
+# nisnps of days to silk 
+nisnps_k27ac3_ds = fread("largedata/march_20/DaystoSilk_0.2_diffmed_sl_sigma_ls_adpt_results.csv", header = T, data.table = F)
+id = which(!(nisnps_k27ac3_ds$idtag %in% c("_indirect", "_tot_indirect","_tot_direct_indirect"))) 
+nisnps_k27ac3_ds = nisnps_k27ac3_ds[id,c(1,3,4)]
+nisnps_k27ac3_ds$chr = as.integer(gsub("X|\\..*", "", nisnps_k27ac3_ds$location))
+nisnps_k27ac3_ds$pos = as.integer(gsub("X[0-9]*\\.","", nisnps_k27ac3_ds$location))
+
+# nisnps of GDD to silk 
+nisnps_k27ac3_gdds = fread("largedata/march_20/GDDDaystoSilk_0.2_diffmed_sl_sigma_ls_adpt_results.csv", header = T, data.table = F)
+id = which(!(nisnps_k27ac3_gdds$idtag %in% c("_indirect", "_tot_indirect","_tot_direct_indirect"))) 
+nisnps_k27ac3_gdds = nisnps_k27ac3_gdds[id,c(1,3,4)]
+nisnps_k27ac3_gdds$chr = as.integer(gsub("X|\\..*", "", nisnps_k27ac3_gdds$location))
+nisnps_k27ac3_gdds$pos = as.integer(gsub("X[0-9]*\\.","", nisnps_k27ac3_gdds$location))
+
+
+# nisnps of days to tassel 
+nisnps_k27ac3_dt = fread("largedata/march_20/DaystoTassel_0.2_diffmed_sl_sigma_ls_adpt_results.csv", header = T, data.table = F)
+id = which(!(nisnps_k27ac3_dt$idtag %in% c("_indirect", "_tot_indirect","_tot_direct_indirect"))) 
+nisnps_k27ac3_dt = nisnps_k27ac3_dt[id,c(1,3,4)]
+nisnps_k27ac3_dt$chr = as.integer(gsub("X|\\..*", "", nisnps_k27ac3_dt$location))
+nisnps_k27ac3_dt$pos = as.integer(gsub("X[0-9]*\\.","", nisnps_k27ac3_dt$location))
+
+# nisnps of GDD to tassel 
+nisnps_k27ac3_gddt = fread("largedata/march_20/GDDDaystoTassel_0.2_diffmed_sl_sigma_ls_adpt_results.csv", header = T, data.table = F)
+id = which(!(nisnps_k27ac3_gddt$idtag %in% c("_indirect", "_tot_indirect","_tot_direct_indirect"))) 
+nisnps_k27ac3_gddt = nisnps_k27ac3_gddt[id,c(1,3,4)]
+nisnps_k27ac3_gddt$chr = as.integer(gsub("X|\\..*", "", nisnps_k27ac3_gddt$location))
+nisnps_k27ac3_gddt$pos = as.integer(gsub("X[0-9]*\\.","", nisnps_k27ac3_gddt$location))
+
+
+library("GenomicRanges")
+library("plyr")
+# 0 overlap of nisnps of Days to Silk and GDD to silk Days to Tassel and GDD to tassel with loops of k27ac3
+grc <- with(nisnps_k27ac3_gdds, GRanges(seqnames=chr, IRanges(start=pos, end=pos)))
+
+grf1 <- with(loops_k27ac3, GRanges(seqnames=Chr, IRanges(start=s1, end=e1)))
+
+### find overlaps between the two
+tb1 <- findOverlaps(query=grf1, subject=grc)
+tb1 <- as.matrix(tb1)
+
+overlap1 = cbind(nisnps_k27ac3_gdds[tb1[,2],], loops_k27ac3[tb1[,1],])
+
+
+grf2 <- with(loops_k27ac3, GRanges(seqnames=Chr, IRanges(start=s2, end=e2)))
+
+### find overlaps between the two
+tb2 <- findOverlaps(query=grf2, subject=grc)
+tb2 <- as.matrix(tb2)
+
+overlap2 = cbind(nisnps_k27ac3_gdds[tb2[,2],], loops_k27ac3[tb2[,1],])
+
+overlapc = rbind(overlap1, overlap2)
+
+
+
+```
+
+```{r}
+o_nisnps_loops_k27ac3_dt = overlapc
+
+o_nisnps_loops_k27ac3_ds = overlapc
+
+o_nisnps_loops_k27ac3_gddt = overlapc
+
+o_nisnps_loops_k27ac3_gdds = overlapc
+
+# the overlaps are the same across dt gddt gdds
+
+fwrite(o_nisnps_loops_k27ac3_dt, "largedata/march_20/overlap_k27ac3_dt.txt", sep = "\t", row.names = F, quote = F)
+fwrite(o_nisnps_loops_k27ac3_gddt, "largedata/march_20/overlap_k27ac3_gddt.txt", sep = "\t", row.names = F, quote = F)
+fwrite(o_nisnps_loops_k27ac3_ds, "largedata/march_20/overlap_k27ac3_ds.txt", sep = "\t", row.names = F, quote = F)
+fwrite(o_nisnps_loops_k27ac3_gdds, "largedata/march_20/overlap_k27ac3_gdds.txt", sep = "\t", row.names = F, quote = F)
+```
+
+
+```{r}
+gene_coordinate = fread("largedata/gene_coordinate.txt", header = T, data.table = F)
+gene_coordinate = gene_coordinate[which(gene_coordinate$chromosome_name == "3"),]
+gene_coordinate$chromosome_name = as.integer(gene_coordinate$chromosome_name)
+
+grc <- with(gene_coordinate, GRanges(seqnames=chromosome_name, IRanges(start=start_position, end=end_position)))
+
+grf1 <- with(o_nisnps_loops_k27ac3_gdds, GRanges(seqnames=Chr, IRanges(start=s1, end=e1)))
+
+### find overlaps between the two
+tb1 <- findOverlaps(query=grf1, subject=grc)
+tb1 <- as.matrix(tb1)
+
+overlap1 = cbind(gene_coordinate[tb1[,2],], o_nisnps_loops_k27ac3_gdds[tb1[,1],])
+
+
+grf2 <- with(o_nisnps_loops_k27ac3_gdds, GRanges(seqnames=Chr, IRanges(start=s2, end=e2)))
+
+### find overlaps between the two
+tb2 <- findOverlaps(query=grf2, subject=grc)
+tb2 <- as.matrix(tb2)
+
+overlap2 = cbind(gene_coordinate[tb2[,2],], o_nisnps_loops_k27ac3_gdds[tb2[,1],])
+
+overlapc = rbind(overlap1, overlap2)
+
+
+# no nisnps-loops overlap with genes
+```
+
+
